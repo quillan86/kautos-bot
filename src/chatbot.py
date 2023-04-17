@@ -1,5 +1,6 @@
 from typing import Union
 import os
+from asgiref.sync import sync_to_async
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks.base import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
@@ -17,7 +18,8 @@ from langchain.schema import (
 )
 
 
-class LangChainChatbot:
+
+class Chatbot:
     def __init__(self, api_key: str, system_prompt: str,
                  engine: str = os.environ.get("GPT_ENGINE") or "gpt-3.5-turbo",
                  truncate_limit: int = None,
@@ -102,3 +104,6 @@ class LangChainChatbot:
         self.conversation[convo_id] = [
             SystemMessage(content=system_prompt or self.system_prompt.content)
         ]
+
+    async def handle_response(self, message) -> str:
+        return await sync_to_async(self.ask)(message)
