@@ -2,8 +2,9 @@ import os
 import discord
 from typing import Union
 from src import log, responses
+from src.chatbot import LangChainChatbot
 from dotenv import load_dotenv
-from discord import app_commands
+from discord import app_commands, Interaction
 from Bard import Chatbot as BardChatbot
 from revChatGPT.V3 import Chatbot
 from revChatGPT.V1 import AsyncChatbot
@@ -21,56 +22,72 @@ with open(prompt_path, "r", encoding="utf-8") as f:
 
 class Client(discord.Client):
     def __init__(self) -> None:
+        """
+        Initialize the client.
+        """
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
-        self.activity = discord.Activity(type=discord.ActivityType.listening, name="/chat | /help")
-        self.isPrivate = False
+        self.activity: discord.Activity = discord.Activity(type=discord.ActivityType.listening, name="/chat | /help")
+        self.isPrivate: bool = False
         self.is_replying_all = os.getenv("REPLYING_ALL")
-        self.replying_all_discord_channel_id = os.getenv("REPLYING_ALL_DISCORD_CHANNEL_ID")
-        self.openAI_email = os.getenv("OPENAI_EMAIL")
-        self.openAI_password = os.getenv("OPENAI_PASSWORD")
-        self.openAI_API_key = os.getenv("OPENAI_API_KEY")
-        self.openAI_gpt_engine = os.getenv("GPT_ENGINE")
-        self.chatgpt_session_token = os.getenv("SESSION_TOKEN")
-        self.chatgpt_access_token = os.getenv("ACCESS_TOKEN")
-        self.chatgpt_paid = os.getenv("UNOFFICIAL_PAID")
-        self.bard_session_id = os.getenv("BARD_SESSION_ID")
-        self.chat_model = os.getenv("CHAT_MODEL")
+        self.replying_all_discord_channel_id: str = os.getenv("REPLYING_ALL_DISCORD_CHANNEL_ID")
+        self.openAI_email: str = os.getenv("OPENAI_EMAIL")
+        self.openAI_password: str = os.getenv("OPENAI_PASSWORD")
+        self.openAI_API_key: str = os.getenv("OPENAI_API_KEY")
+        self.openAI_gpt_engine: str = os.getenv("GPT_ENGINE")
+        self.chatgpt_session_token: str = os.getenv("SESSION_TOKEN")
+        self.chatgpt_access_token: str = os.getenv("ACCESS_TOKEN")
+        self.chatgpt_paid: str = os.getenv("UNOFFICIAL_PAID")
+        self.bard_session_id: str = os.getenv("BARD_SESSION_ID")
+        self.chat_model: str = os.getenv("CHAT_MODEL")
         self.chatbot = self.get_chatbot_model()
 
-    def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, Chatbot]:
+    def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, BardChatbot, EdgeChatbot, LangChainChatbot]:
+        """
+        Get the chatbot model.
+
+        :param prompt:
+        :return:
+        """
+
         if self.chat_model == "UNOFFICIAL":
             return AsyncChatbot(config={"email": self.openAI_email, "password": self.openAI_password, "access_token": self.chatgpt_access_token, "model": self.openAI_gpt_engine, "paid": self.chatgpt_paid})
         elif self.chat_model == "OFFICIAL":
-                return Chatbot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
+            return LangChainChatbot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
         elif self.chat_model == "Bard":
             return BardChatbot(session_id=self.bard_session_id)
         elif self.chat_model == "Bing":
             return EdgeChatbot(cookiePath='./cookies.json')
 
-    async def send_message(self, message, user_message):
+    async def send_message(self, interaction: discord.Interaction, message: str):
+        """
+        Send a message.
+        :param interaction:
+        :param message:
+        :return:
+        """
         if self.is_replying_all == "False":
-            author = message.user.id
-            await message.response.defer(ephemeral=self.isPrivate)
+            author = interaction.user.id
+            await interaction.response.defer(ephemeral=self.isPrivate)
         else:
-            author = message.author.id
+            author = interaction.author.id
         try:
             chat_model_status = self.chat_model
             if self.chat_model == "UNOFFICIAL":
                 chat_model_status = f'ChatGPT {self.openAI_gpt_engine}'
             elif self.chat_model == "OFFICIAL":
                 chat_model_status = f'OpenAI {self.openAI_gpt_engine}'
-            response = (f'> **{user_message}** - <@{str(author)}> ({chat_model_status}) \n\n')
+            response = (f'> **{message}** - <@{str(author)}> ({chat_model_status}) \n\n')
             if self.chat_model == "OFFICIAL":
-                response = f"{response}{await responses.official_handle_response(user_message, self)}"
+                response = f"{response}{await responses.official_handle_response(message, self)}"
             elif self.chat_model == "UNOFFICIAL":
-                response = f"{response}{await responses.unofficial_handle_response(user_message, self)}"
+                response = f"{response}{await responses.unofficial_handle_response(message, self)}"
             elif self.chat_model == "Bard":
-                response = f"{response}{await responses.bard_handle_response(user_message, self)}"
+                response = f"{response}{await responses.bard_handle_response(message, self)}"
             elif self.chat_model == "Bing":
-                response = f"{response}{await responses.bing_handle_response(user_message, self)}"
+                response = f"{response}{await responses.bing_handle_response(message, self)}"
             char_limit = 1900
             if len(response) > char_limit:
                 # Split the response into smaller chunks of no more than 1900 characters each(Discord limit is 2000 per chunk)
@@ -81,9 +98,9 @@ class Client(discord.Client):
                     for i in range(len(parts)):
                         if i%2 == 0: # indices that are even are not code blocks
                             if self.is_replying_all == "True":
-                                await message.channel.send(parts[i])
+                                await interaction.channel.send(parts[i])
                             else:
-                                await message.followup.send(parts[i])
+                                await interaction.followup.send(parts[i])
                         else: # Odd-numbered parts are code blocks
                             code_block = parts[i].split("\n")
                             formatted_code_block = ""
@@ -100,30 +117,30 @@ class Client(discord.Client):
                                                     for i in range(0, len(formatted_code_block), char_limit)]
                                 for chunk in code_block_chunks:
                                     if self.is_replying_all == "True":
-                                        await message.channel.send(f"```{chunk}```")
+                                        await interaction.channel.send(f"```{chunk}```")
                                     else:
-                                        await message.followup.send(f"```{chunk}```")
+                                        await interaction.followup.send(f"```{chunk}```")
                             elif self.is_replying_all == "True":
-                                await message.channel.send(f"```{formatted_code_block}```")
+                                await interaction.channel.send(f"```{formatted_code_block}```")
                             else:
-                                await message.followup.send(f"```{formatted_code_block}```")
+                                await interaction.followup.send(f"```{formatted_code_block}```")
                 else:
                     response_chunks = [response[i:i+char_limit]
                                     for i in range(0, len(response), char_limit)]
                     for chunk in response_chunks:
                         if self.is_replying_all == "True":
-                            await message.channel.send(chunk)
+                            await interaction.channel.send(chunk)
                         else:
-                            await message.followup.send(chunk)
+                            await interaction.followup.send(chunk)
             elif self.is_replying_all == "True":
-                await message.channel.send(response)
+                await interaction.channel.send(response)
             else:
-                await message.followup.send(response)
+                await interaction.followup.send(response)
         except Exception as e:
             if self.is_replying_all == "True":
-                await message.channel.send("> **ERROR: Something went wrong, please try again later!**")
+                await interaction.channel.send("> **ERROR: Something went wrong, please try again later!**")
             else:
-                await message.followup.send("> **ERROR: Something went wrong, please try again later!**")
+                await interaction.followup.send("> **ERROR: Something went wrong, please try again later!**")
             logger.exception(f"Error while sending message: {e}")
 
     async def send_start_prompt(self):
