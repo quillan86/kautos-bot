@@ -18,7 +18,8 @@ prompt_path = os.path.join(config_dir, prompt_name)
 with open(prompt_path, "r", encoding="utf-8") as f:
     prompt = f.read()
 
-class aclient(discord.Client):
+
+class Client(discord.Client):
     def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.message_content = True
@@ -38,7 +39,6 @@ class aclient(discord.Client):
         self.bard_session_id = os.getenv("BARD_SESSION_ID")
         self.chat_model = os.getenv("CHAT_MODEL")
         self.chatbot = self.get_chatbot_model()
-
 
     def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, Chatbot]:
         if self.chat_model == "UNOFFICIAL":
@@ -159,4 +159,4 @@ class aclient(discord.Client):
             logger.exception(f"Error while sending system prompt: {e}")
 
 
-client = aclient()
+client = Client()

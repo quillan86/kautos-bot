@@ -32,6 +32,7 @@ async def draw(prompt) -> str:
 
     return str(path)
 
+
 # code stolen from https://realpython.com/generate-images-with-dalle-openai-api/
 async def convert(path):
     DATA_DIR = Path.cwd() / "responses"

@@ -2,11 +2,12 @@ import os
 import openai
 import discord
 from random import randrange
-from src.aclient import client
+from src.client import client
 from discord import app_commands
 from src import log, art, personas, responses
 
 logger = log.setup_logger(__name__)
+
 
 def run_discord_bot():
     @client.event
@@ -30,7 +31,6 @@ def run_discord_bot():
         logger.info(
             f"\x1b[31m{username}\x1b[0m : /chat [{message}] in ({channel})")
         await client.send_message(interaction, message)
-
 
     @client.tree.command(name="private", description="Toggle private access")
     async def private(interaction: discord.Interaction):
@@ -58,7 +58,6 @@ def run_discord_bot():
                 "> **WARN: You already on public mode. If you want to switch to private mode, use `/private`**")
             logger.info("You already on public mode!")
 
-
     @client.tree.command(name="replyall", description="Toggle replyAll access")
     async def replyall(interaction: discord.Interaction):
         client.replying_all_discord_channel_id = str(interaction.channel_id)
@@ -73,7 +72,6 @@ def run_discord_bot():
             await interaction.followup.send(
                 "> **INFO: Next, the bot will disable Slash Command and responding to all message in this channel only. If you want to switch back to normal mode, use `/replyAll` again**")
             logger.warning("\x1b[31mSwitch to replyAll mode\x1b[0m")
-
 
     @client.tree.command(name="chat-model", description="Switch different chat model")
     @app_commands.choices(choices=[
@@ -120,7 +118,6 @@ def run_discord_bot():
             client.chatbot = client.get_chatbot_model()
             await interaction.followup.send(f"> **ERROR: Error while switching to the {choices.value} model, check that you've filled in the related fields in `.env`.**\n")
             logger.exception(f"Error while switching to the {choices.value} model: {e}")
-
 
     @client.tree.command(name="reset", description="Complete reset conversation history")
     async def reset(interaction: discord.Interaction):
@@ -259,7 +256,6 @@ https://github.com/Zero6992/chatGPT-discord-bot""")
             await responses.switch_persona(chosen_persona, client)
             await interaction.followup.send(
                 f"> **INFO: Switched to `{chosen_persona}` persona**")
-
 
         elif persona in personas.PERSONAS:
             try:

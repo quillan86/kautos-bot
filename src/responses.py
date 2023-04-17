@@ -1,23 +1,28 @@
 from src import personas
 from asgiref.sync import sync_to_async
 
+
 async def official_handle_response(message, client) -> str:
     return await sync_to_async(client.chatbot.ask)(message)
+
 
 async def unofficial_handle_response(message, client) -> str:
     async for response in client.chatbot.ask(message):
         responseMessage = response["message"]
     return responseMessage
 
+
 async def bard_handle_response(message, client) -> str:
     response = await sync_to_async(client.chatbot.ask)(message)
     responseMessage = response["content"]
     return responseMessage
 
+
 async def bing_handle_response(message, client) -> str:
     async for response in client.chatbot.ask_stream(message):
         responseMessage = response
     return responseMessage[1]["item"]["messages"][1]["text"]
+
 
 # resets conversation and asks chatGPT the prompt for a persona
 async def switch_persona(persona, client) -> None:
