@@ -6,4 +6,8 @@ asgiref==3.6.0
 GoogleBard==0.0.6.1
 EdgeGPT==0.1.22.1
 langchain==0.0.141
-tiktoken
+networkx==2.8.4
+numpy
+pandas
+Cmake
+chromadb

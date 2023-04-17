@@ -30,7 +30,39 @@ def run_discord_bot():
         channel = str(interaction.channel)
         logger.info(
             f"\x1b[31m{username}\x1b[0m : /chat [{message}] in ({channel})")
-        await client.send_message(interaction, message)
+        await client.send_message(interaction, message, qa=False)
+
+    @client.tree.command(name="qa", description="Question Answering")
+    async def qa(interaction: discord.Interaction, *, message: str):
+        if client.is_replying_all == "True":
+            await interaction.response.defer(ephemeral=False)
+            await interaction.followup.send(
+                "> **WARN: You already on replyAll mode. If you want to use the Slash Command, switch to normal mode by using `/replyall` again**")
+            logger.warning("\x1b[31mYou already on replyAll mode, can't use slash command!\x1b[0m")
+            return
+        if interaction.user == client.user:
+            return
+        username = str(interaction.user)
+        channel = str(interaction.channel)
+        logger.info(
+            f"\x1b[31m{username}\x1b[0m : /qa [{message}] in ({channel})")
+        await client.send_message(interaction, message, qa=True)
+
+    @client.tree.command(name="summary", description="Summary of current conversation")
+    async def summary(interaction: discord.Interaction):
+        if client.is_replying_all == "True":
+            await interaction.response.defer(ephemeral=False)
+            await interaction.followup.send(
+                "> **WARN: You already on replyAll mode. If you want to use the Slash Command, switch to normal mode by using `/replyall` again**")
+            logger.warning("\x1b[31mYou already on replyAll mode, can't use slash command!\x1b[0m")
+            return
+        if interaction.user == client.user:
+            return
+        username = str(interaction.user)
+        channel = str(interaction.channel)
+        logger.info(
+            f"\x1b[31m{username}\x1b[0m : /summary in ({channel})")
+        await client.summarize(interaction)
 
     @client.tree.command(name="private", description="Toggle private access")
     async def private(interaction: discord.Interaction):

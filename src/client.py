@@ -2,7 +2,7 @@ import os
 import discord
 from typing import Union
 from src import log, responses
-from src.chatbot import Chatbot
+from src.chatbot import ChatBot
 from dotenv import load_dotenv
 from discord import app_commands
 from Bard import Chatbot as BardChatbot
@@ -43,7 +43,7 @@ class Client(discord.Client):
         self.chat_model: str = os.getenv("CHAT_MODEL")
         self.chatbot = self.get_chatbot_model()
 
-    def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, BardChatbot, EdgeChatbot, Chatbot]:
+    def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, BardChatbot, EdgeChatbot, ChatBot]:
         """
         Get the chatbot model.
 
@@ -54,7 +54,7 @@ class Client(discord.Client):
         if self.chat_model == "UNOFFICIAL":
             return AsyncChatbot(config={"email": self.openAI_email, "password": self.openAI_password, "access_token": self.chatgpt_access_token, "model": self.openAI_gpt_engine, "paid": self.chatgpt_paid})
         elif self.chat_model == "OFFICIAL":
-            return Chatbot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
+            return ChatBot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
         elif self.chat_model == "Bard":
             return BardChatbot(session_id=self.bard_session_id)
         elif self.chat_model == "Bing":
@@ -74,7 +74,7 @@ class Client(discord.Client):
         else:
             return self.chat_model
 
-    async def format_response(self, message: str, author, chat_model_status) -> str:
+    async def format_response(self, message: str, author, chat_model_status, qa: bool = False) -> str:
         """
         Format response.
         :param message:
@@ -84,7 +84,7 @@ class Client(discord.Client):
         """
         response = (f'> **{message}** - <@{str(author)}> ({chat_model_status}) \n\n')
         if self.chat_model == "OFFICIAL":
-            response = f"{response}{await self.chatbot.handle_response(message)}"
+            response = f"{response}{await self.chatbot.handle_response(message, qa=qa)}"
         elif self.chat_model == "UNOFFICIAL":
             response = f"{response}{await responses.unofficial_handle_response(message, self)}"
         elif self.chat_model == "Bard":
@@ -189,18 +189,19 @@ class Client(discord.Client):
         else:
             await interaction.followup.send(error_message)
 
-    async def send_message(self, interaction: discord.Interaction, message: str):
+    async def send_message(self, interaction: discord.Interaction, message: str, qa: bool = False):
         """
         Send a message.
         :param interaction: Discord Interaction.
         :param message:
+        :param qa: Whether the message is a question to extract grounded knowledge.
         :return:
         """
 
         author = await self.get_author(interaction)
         await interaction.response.defer(ephemeral=self.isPrivate)
         chat_model_status = await self.get_chat_model_status()
-        response = await self.format_response(message, author, chat_model_status)
+        response = await self.format_response(message, author, chat_model_status, qa=qa)
         await self.handle_response(interaction, response)
 
     async def send_start_prompt(self):
@@ -234,6 +235,40 @@ class Client(discord.Client):
                 logger.info(f"No {prompt_name}. Skip sending system prompt.")
         except Exception as e:
             logger.exception(f"Error while sending system prompt: {e}")
+
+    async def format_summary(self, author, chat_model_status) -> str:
+        """
+        Format response.
+        :param message:
+        :param author:
+        :param chat_model_status:
+        :return:
+        """
+        response = (f'> **summary** - <@{str(author)}> ({chat_model_status}) \n\n')
+        if self.chat_model == "OFFICIAL":
+            response = f"{response}{await self.chatbot.handle_summary()}"
+        else:
+            response = f"{response}Summary not available for {self.chat_model}"
+        return response
+
+    async def summarize(self, interaction: discord.Interaction):
+        """
+
+        :param interaction:
+        :return:
+        """
+        """
+        Send a message.
+        :param interaction: Discord Interaction.
+        :param message:
+        :return:
+        """
+
+        author = await self.get_author(interaction)
+        await interaction.response.defer(ephemeral=self.isPrivate)
+        chat_model_status = await self.get_chat_model_status()
+        response = await self.format_summary(author, chat_model_status)
+        await self.handle_response(interaction, response)
 
 
 client = Client()
