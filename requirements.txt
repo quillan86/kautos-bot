@@ -9,5 +9,5 @@ langchain==0.0.141
 networkx==2.8.4
 numpy
 pandas
-Cmake
+opensearch-py
 chromadb

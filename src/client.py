@@ -5,15 +5,13 @@ from src import log, responses
 from src.chatbot import ChatBot
 from dotenv import load_dotenv
 from discord import app_commands
-from Bard import Chatbot as BardChatbot
 from revChatGPT.V1 import AsyncChatbot
-from EdgeGPT import Chatbot as EdgeChatbot
 
 logger = log.setup_logger(__name__)
 load_dotenv()
 
-config_dir = os.path.abspath(f"{__file__}/../../")
-prompt_name = 'system_prompt.txt'
+config_dir = os.path.abspath(f"{__file__}/../templates/")
+prompt_name = 'system_message.txt'
 prompt_path = os.path.join(config_dir, prompt_name)
 with open(prompt_path, "r", encoding="utf-8") as f:
     prompt = f.read()
@@ -43,22 +41,25 @@ class Client(discord.Client):
         self.chat_model: str = os.getenv("CHAT_MODEL")
         self.chatbot = self.get_chatbot_model()
 
-    def get_chatbot_model(self, prompt=prompt) -> Union[AsyncChatbot, BardChatbot, EdgeChatbot, ChatBot]:
+    def get_chatbot_model(self, prompt=prompt) -> ChatBot:
         """
         Get the chatbot model.
 
         :param prompt:
         :return:
         """
-
-        if self.chat_model == "UNOFFICIAL":
-            return AsyncChatbot(config={"email": self.openAI_email, "password": self.openAI_password, "access_token": self.chatgpt_access_token, "model": self.openAI_gpt_engine, "paid": self.chatgpt_paid})
-        elif self.chat_model == "OFFICIAL":
+        if self.chat_model == "OFFICIAL":
             return ChatBot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
-        elif self.chat_model == "Bard":
-            return BardChatbot(session_id=self.bard_session_id)
-        elif self.chat_model == "Bing":
-            return EdgeChatbot(cookiePath='./cookies.json')
+        else:
+            raise KeyError("Needs to be OFFICIAL model")
+#        elif self.chat_model == "UNOFFICIAL":
+#            return AsyncChatbot(config={"email": self.openAI_email, "password": self.openAI_password, "access_token": self.chatgpt_access_token, "model": self.openAI_gpt_engine, "paid": self.chatgpt_paid})
+#        elif self.chat_model == "OFFICIAL":
+#            return ChatBot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
+#        elif self.chat_model == "Bard":
+#            return BardChatbot(session_id=self.bard_session_id)
+#        elif self.chat_model == "Bing":
+#            return EdgeChatbot(cookiePath='./cookies.json')
 
     async def get_author(self, interaction: discord.Interaction) -> int:
         if self.is_replying_all == "False":
@@ -74,6 +75,19 @@ class Client(discord.Client):
         else:
             return self.chat_model
 
+    async def create_response(self, message: str, initial_response: str = "", qa: bool = False) -> str:
+        if self.chat_model == "OFFICIAL":
+            response = f"{initial_response}{await self.chatbot.ask(message, qa=qa)}"
+        elif self.chat_model == "UNOFFICIAL":
+            response = f"{initial_response}{await responses.unofficial_handle_response(message, self)}"
+        else:
+            raise KeyError("OFFICIAL bot only!")
+        #        elif self.chat_model == "Bard":
+        #            response = f"{response}{await responses.bard_handle_response(message, self)}"
+        #        elif self.chat_model == "Bing":
+        #            response = f"{response}{await responses.bing_handle_response(message, self)}"
+        return response
+
     async def format_response(self, message: str, author, chat_model_status, qa: bool = False) -> str:
         """
         Format response.
@@ -83,14 +97,7 @@ class Client(discord.Client):
         :return:
         """
         response = (f'> **{message}** - <@{str(author)}> ({chat_model_status}) \n\n')
-        if self.chat_model == "OFFICIAL":
-            response = f"{response}{await self.chatbot.handle_response(message, qa=qa)}"
-        elif self.chat_model == "UNOFFICIAL":
-            response = f"{response}{await responses.unofficial_handle_response(message, self)}"
-        elif self.chat_model == "Bard":
-            response = f"{response}{await responses.bard_handle_response(message, self)}"
-        elif self.chat_model == "Bing":
-            response = f"{response}{await responses.bing_handle_response(message, self)}"
+        response = await self.create_response(message, initial_response=response, qa=qa)
         return response
 
     async def handle_response(self, interaction: discord.Interaction, response: str):
@@ -207,30 +214,28 @@ class Client(discord.Client):
     async def send_start_prompt(self):
         import os.path
 
-        config_dir = os.path.abspath(f"{__file__}/../../")
-        prompt_name = 'system_prompt.txt'
-        prompt_path = os.path.join(config_dir, prompt_name)
+        config_dir = os.path.abspath(f"{__file__}/../templates/")
+        system_message_filename = 'system_message.txt'
+        introduction_filename = 'introduction.txt'
+        system_message_path = os.path.join(config_dir, system_message_filename)
+        intro_message_path = os.path.join(config_dir, introduction_filename)
         discord_channel_id = os.getenv("DISCORD_CHANNEL_ID")
         try:
-            if os.path.isfile(prompt_path) and os.path.getsize(prompt_path) > 0:
-                with open(prompt_path, "r", encoding="utf-8") as f:
+            if os.path.isfile(system_message_path) and os.path.getsize(system_message_path) > 0:
+                with open(system_message_path, "r", encoding="utf-8") as f:
                     prompt = f.read()
-                    if (discord_channel_id):
-                        logger.info(f"Send system prompt with size {len(prompt)}")
-                        response = ""
-                        if self.chat_model == "OFFICIAL":
-                            response = f"{response}{await responses.official_handle_response(prompt, self)}"
-                        elif self.chat_model == "UNOFFICIAL":
-                            response = f"{response}{await responses.unofficial_handle_response(prompt, self)}"
-                        elif self.chat_model == "Bard":
-                            response = f"{response}{await responses.bard_handle_response(prompt, self)}"
-                        elif self.chat_model == "Bing":
-                            response = f"{response}{await responses.bing_handle_response(prompt, self)}"
-                        channel = self.get_channel(int(discord_channel_id))
-                        await channel.send(response)
-                        logger.info(f"System prompt response:{response}")
-                    else:
-                        logger.info("No Channel selected. Skip sending system prompt.")
+                    # reset chatbot
+#                    self.chatbot.reset(system_prompt=prompt)
+                    with open(intro_message_path, "r", encoding="utf-8") as f:
+                        intro_prompt = f.read()
+                        if (discord_channel_id):
+                            logger.info(f"Send system prompt with size {len(prompt)}")
+                            response = await self.create_response(intro_prompt, initial_response="", qa=False)
+                            channel = self.get_channel(int(discord_channel_id))
+                            await channel.send(response)
+                            logger.info(f"System prompt response:{response}")
+                        else:
+                            logger.info("No Channel selected. Skip sending system prompt.")
             else:
                 logger.info(f"No {prompt_name}. Skip sending system prompt.")
         except Exception as e:

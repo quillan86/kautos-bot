@@ -40,12 +40,12 @@ class ChatBot:
         self.stream_handler = StreamingStdOutCallbackHandler()
         # vanilla chat for regular conversational chat
         self.chat: ChatOpenAI = ChatOpenAI(temperature=self.temperature,
-                                           engine=self.engine,
+#                                           engine=self.engine,
                                            openai_api_key=self.api_key,
                                            callback_manager=CallbackManager([self.stream_handler]))
         # need precise chat LLM for KG
         self.memory_llm: ChatOpenAI = ChatOpenAI(temperature=0,
-                                                 engine=self.engine,
+#                                                 engine=self.engine,
                                                  openai_api_key=self.api_key,
                                                  callback_manager=CallbackManager([self.stream_handler]))
         # Question Answerer
@@ -93,7 +93,7 @@ class ChatBot:
         result = result[:-1]  # remove last \n
         return result
 
-    def update_memory_summary(self, convo_id: str = "default") -> str:
+    async def update_memory_summary(self, convo_id: str = "default") -> str:
         # get last two messages. they should be human and bot.
         user_message, assistant_message = [x.content for x in self.conversation[convo_id][-2:]]
         # save messages to memory.
@@ -123,6 +123,18 @@ class ChatBot:
             else:
                 break
 
+    def get_citations(self, documents) -> str:
+        """
+        [citation needed]
+        :param documents: source documents
+        :return: [citations]!!
+        """
+        # unique citations
+        citations = set([f"[{x.metadata['name']}]({x.metadata['url']})" for x in documents])
+        # convert to string
+        result = ', '.join(citations)
+        return result
+
     async def answer(self, question: str, convo_id: str = 'default'):
         """
         Question Answering from ground truth.
@@ -133,11 +145,17 @@ class ChatBot:
         chat_history = [x.content for x in self.conversation[convo_id][1:1]]
 
         # get answer
-        result = await self.qa.chain.acall(
+        result = self.qa.chain(
             {"question": question, "chat_history": chat_history}
         )
         answer = result["answer"]
-        response = AIMessage(content=answer)
+        sources = result["source_documents"]
+
+        if len(sources) > 0:
+            citations = self.get_citations(sources)
+            response = AIMessage(content=f"{answer}\nSources: {citations}")
+        else:
+            response = AIMessage(content=f"{answer}")
         return response
 
     async def ask(self, prompt: str, role: str = "user", convo_id: str = "default", qa: bool = False):
@@ -152,13 +170,13 @@ class ChatBot:
         self.add_to_conversation(prompt, role, convo_id)
         # create assistant response
         if qa is False:
-            response = self.chat(self.conversation[convo_id])
+            response = await sync_to_async(self.chat)(self.conversation[convo_id])
         else:
             response = await self.answer(prompt, convo_id=convo_id)
         # add assistant response
         self.add_to_conversation(response.content, "assistant", convo_id)
         # update memory
-        self.update_memory_summary(convo_id)
+        await self.update_memory_summary(convo_id)
         return response.content
 
     def rollback(self, n: int = 1, convo_id: str = "default") -> None:
@@ -185,12 +203,11 @@ class ChatBot:
             SystemMessage(content="")
         ]
 
-
-    def summarize(self, convo_id: str = "default") -> str:
+    async def summarize(self, convo_id: str = "default") -> str:
         return self.conversation[convo_id][1].content
 
     async def handle_response(self, message: str, qa: bool = False) -> str:
-        return await sync_to_async(self.ask)(message, qa=qa)
+        return await self.ask(message, qa=qa)
 
     async def handle_summary(self) -> str:
-        return await sync_to_async(self.summarize)()
+        return await self.summarize()

@@ -176,6 +176,8 @@ def run_discord_bot():
         await interaction.response.defer(ephemeral=False)
         await interaction.followup.send(""":star: **BASIC COMMANDS** \n
         - `/chat [message]` Chat with ChatGPT!
+        - `/summary` Summary that ChatGPT uses to have long term memory.`
+        - `/qa [message]` Answer a question from ground truth. Question and Answer are part of the ChatGPT conversation.
         - `/draw [prompt]` Generate an image with the Dalle2 model
         - `/switchpersona [persona]` Switch between optional ChatGPT jailbreaks
                 `random`: Picks a random persona

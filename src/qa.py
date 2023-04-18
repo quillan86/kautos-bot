@@ -2,14 +2,13 @@ import os
 from typing import Optional
 from langchain.callbacks.base import AsyncCallbackManager
 from langchain.callbacks.tracers import LangChainTracer
-from langchain.chains import ChatVectorDBChain
+from langchain.chains import ConversationalRetrievalChain
 from langchain.chains.chat_vector_db.prompts import (CONDENSE_QUESTION_PROMPT,
                                                      QA_PROMPT)
 from langchain.chains.llm import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.vectorstores.base import VectorStore
-from langchain.indexes import VectorstoreIndexCreator
 from src.loader import WorldAnvilLoader
 
 
@@ -29,13 +28,14 @@ class QuestionAnswerer:
         # figure this out!
         self.tracing: bool = tracing
         self.vector_store: Optional[VectorStore] = self.loader.load_and_create_index()
+        self.retriever = self.vector_store.as_retriever(search_type="similarity", search_kwargs={"k":2})
         self.question_handler = AsyncCallbackManager([])
         self.stream_handler = AsyncCallbackManager([])
         # LLM chain
         self.chain = self.get_chain(tracing=tracing)
 
     def get_chain(self, tracing: bool = False
-    ) -> ChatVectorDBChain:
+    ) -> ConversationalRetrievalChain:
         """Create a ChatVectorDBChain for question/answering."""
         # Construct a ChatVectorDBChain with a streaming llm for combine docs
         # and a separate, non-streaming llm for question generation
@@ -51,16 +51,14 @@ class QuestionAnswerer:
             temperature=0,
             verbose=True,
             callback_manager=self.question_handler,
-            open_api_key=self.api_key,
-            engine=self.engine
+            openai_api_key=self.api_key
         )
         streaming_llm = OpenAI(
             streaming=True,
             temperature=0,
             verbose=True,
             callback_manager=self.stream_handler,
-            open_api_key=self.api_key,
-            engine=self.engine
+            openai_api_key=self.api_key
         )
 
         question_generator = LLMChain(
@@ -70,10 +68,11 @@ class QuestionAnswerer:
             streaming_llm, chain_type="stuff", prompt=QA_PROMPT, callback_manager=manager
         )
 
-        qa = ChatVectorDBChain(
-            vectorstore=self.vector_store,
+        qa = ConversationalRetrievalChain(
+            retriever=self.retriever,
             combine_docs_chain=doc_chain,
             question_generator=question_generator,
             callback_manager=manager,
+            return_source_documents=True
         )
         return qa
