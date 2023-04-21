@@ -19,6 +19,8 @@ class QuestionAnswerer:
                  tracing: bool = False
                  ):
         # LLM
+        self.temperature: float = 0.2  # for some originality
+        self.k: int = 4 # k in kNN
         self.api_key: str = api_key
         self.engine: str = engine
 
@@ -28,7 +30,7 @@ class QuestionAnswerer:
         # figure this out!
         self.tracing: bool = tracing
         self.vector_store: Optional[VectorStore] = self.loader.load_and_create_index()
-        self.retriever = self.vector_store.as_retriever(search_type="similarity", search_kwargs={"k":2})
+        self.retriever = self.vector_store.as_retriever(search_type="similarity", search_kwargs={"k": self.k})
         self.question_handler = AsyncCallbackManager([])
         self.stream_handler = AsyncCallbackManager([])
         # LLM chain
@@ -48,14 +50,14 @@ class QuestionAnswerer:
             self.stream_handler.add_handler(tracer)
 
         question_gen_llm = OpenAI(
-            temperature=0,
+            temperature=self.temperature,
             verbose=True,
             callback_manager=self.question_handler,
             openai_api_key=self.api_key
         )
         streaming_llm = OpenAI(
             streaming=True,
-            temperature=0,
+            temperature=self.temperature,
             verbose=True,
             callback_manager=self.stream_handler,
             openai_api_key=self.api_key

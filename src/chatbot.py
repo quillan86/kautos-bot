@@ -1,5 +1,6 @@
 from typing import Union
 import os
+import re
 from src.qa import QuestionAnswerer
 from asgiref.sync import sync_to_async
 from langchain.chat_models import ChatOpenAI
@@ -123,6 +124,11 @@ class ChatBot:
             else:
                 break
 
+    def fix_citation_label(self, name: str):
+        pattern = r'[^a-zA-Z\s]*'  # Matches any non-alphanumeric characters and digits
+        result = re.sub(pattern, '', name).strip()
+        return result
+
     def get_citations(self, documents) -> str:
         """
         [citation needed]
@@ -130,7 +136,7 @@ class ChatBot:
         :return: [citations]!!
         """
         # unique citations
-        citations = set([f"[{x.metadata['name']}]({x.metadata['url']})" for x in documents])
+        citations = set([f"[{self.fix_citation_label(x.metadata['name'])}]({x.metadata['url']})" for x in documents])
         # convert to string
         result = ', '.join(citations)
         return result
