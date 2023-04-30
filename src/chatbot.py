@@ -42,12 +42,12 @@ class ChatBot:
         self.stream_handler = StreamingStdOutCallbackHandler()
         # vanilla chat for regular conversational chat
         self.chat: ChatOpenAI = ChatOpenAI(temperature=self.temperature,
-#                                           model_type=self.engine,
+                                           model_name=self.engine,
                                            openai_api_key=self.api_key,
                                            callback_manager=CallbackManager([self.stream_handler]))
         # need precise chat LLM for KG
         self.kg_llm: ChatOpenAI = ChatOpenAI(temperature=0,
-#                                             model_type=self.engine,
+                                             model_name=self.engine,
                                              openai_api_key=self.api_key,
                                              callback_manager=CallbackManager([self.stream_handler]))
         # Question Answerer
@@ -140,11 +140,11 @@ class ChatBot:
         """
 
         conversation = self.conversation[convo_id][1:1]
-        result = self.qa.history_run(question, conversation)
+        result = await sync_to_async(self.qa.history_run)(question, conversation)
         response = AIMessage(content=f"{result}")
         return response
 
-    async def think(self, question: str, convo_id: str = "default"):
+    async def think(self, question: str, convo_id: str = "default", creative: bool = False):
         """
         Think Different. Use an Agent.
         :param question:
@@ -152,7 +152,10 @@ class ChatBot:
         :return:
         """
         self.agent.modify_agent(convo_id, self.system_prompt.content)
-        result = self.agent.chain.run(input=question)
+        if not creative:
+            result = await sync_to_async(self.agent.accurate_chain.run)(input=question)
+        else:
+            result = await sync_to_async(self.agent.creative_chain.run)(input=question)
         response = AIMessage(content=f"{result}")
         return response
 
@@ -165,8 +168,8 @@ class ChatBot:
         :return:
         """
         # add user response
-        if type not in ["chat", "qa", "agent"]:
-            raise KeyError("Type must be one of chat, qa, agent.")
+        if type not in ["chat", "qa", "agent", "creative"]:
+            raise KeyError("Type must be one of chat, qa, agent, creative.")
 
         self.add_to_conversation(prompt, role, convo_id)
         # create assistant response
@@ -175,7 +178,9 @@ class ChatBot:
         elif type == "qa":
             response = await self.answer(prompt, convo_id=convo_id)
         elif type == "agent":
-            response = await self.think(prompt, convo_id=convo_id)
+            response = await self.think(prompt, convo_id=convo_id, creative=False)
+        elif type == "creative":
+            response = await self.think(prompt, convo_id=convo_id, creative=True)
         else:
             response = await sync_to_async(self.chat)(self.conversation[convo_id])
         # add assistant response

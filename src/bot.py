@@ -32,8 +32,8 @@ def run_discord_bot():
             f"\x1b[31m{username}\x1b[0m : /chat [{message}] in ({channel})")
         await client.send_message(interaction, message, type="chat")
 
-    @client.tree.command(name="agent", description="Agent-based GPT")
-    async def agent(interaction: discord.Interaction, *, message: str):
+    @client.tree.command(name="precise", description="Precise Agent Mode")
+    async def precise(interaction: discord.Interaction, *, message: str):
         if client.is_replying_all == "True":
             await interaction.response.defer(ephemeral=False)
             await interaction.followup.send(
@@ -45,8 +45,24 @@ def run_discord_bot():
         username = str(interaction.user)
         channel = str(interaction.channel)
         logger.info(
-            f"\x1b[31m{username}\x1b[0m : /agent [{message}] in ({channel})")
+            f"\x1b[31m{username}\x1b[0m : /precise [{message}] in ({channel})")
         await client.send_message(interaction, message, type="agent")
+
+    @client.tree.command(name="creative", description="Creative Agent Mode")
+    async def creative(interaction: discord.Interaction, *, message: str):
+        if client.is_replying_all == "True":
+            await interaction.response.defer(ephemeral=False)
+            await interaction.followup.send(
+                "> **WARN: You already on replyAll mode. If you want to use the Slash Command, switch to normal mode by using `/replyall` again**")
+            logger.warning("\x1b[31mYou already on replyAll mode, can't use slash command!\x1b[0m")
+            return
+        if interaction.user == client.user:
+            return
+        username = str(interaction.user)
+        channel = str(interaction.channel)
+        logger.info(
+            f"\x1b[31m{username}\x1b[0m : /creative [{message}] in ({channel})")
+        await client.send_message(interaction, message, type="creative")
 
     @client.tree.command(name="qa", description="Question Answering")
     async def qa(interaction: discord.Interaction, *, message: str):
