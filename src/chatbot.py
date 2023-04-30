@@ -62,7 +62,7 @@ class ChatBot:
             "default": [self.system_prompt, SystemMessage(content="")]
         }
 
-        self.agent: Agent = Agent(self.api_key, self.buffer, self.qa, convo_id="default",
+        self.agent: Agent = Agent(self.api_key, self.qa, convo_id="default",
                                   temperature=self.temperature, engine=self.engine, verbose=True, system_message=self.system_prompt.content)
 
     def add_to_conversation(self, prompt: str, role: str, convo_id: str = "default") -> None:

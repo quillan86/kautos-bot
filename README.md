@@ -1,6 +1,6 @@
-# ChatGPT Discord Bot
+# Kautos Discord Bot
 
-> ### Build your own Discord bot using ChatGPT
+> ### Discord Bot built with ChatGPT to query information about Kautos
 >
 ---
 > **Warning**

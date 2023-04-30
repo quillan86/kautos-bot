@@ -10,7 +10,6 @@ from src.qa import QuestionAnswerer
 
 class Agent:
     def __init__(self, api_key: str,
-                 memory: dict[str, ConversationBufferMemory],
                  qa: QuestionAnswerer,
                  convo_id: str = "default",
                  temperature: float = 0.3,
@@ -29,14 +28,13 @@ class Agent:
         wiki = WikipediaAPIWrapper()
         wolfram = WolframAlphaAPIWrapper()
         google = SerpAPIWrapper()
-        wiki_tool = Tool(name="Wikipedia", func=wiki.run, description="Useful for when you need to answer general questions about people, places, organizations, religions, or historical events on Earth, or drawing inspiration from these things on Earth as a creative input for Kautos. Prioritize this when searching for things on Earth. When comparing things from Earth and Kautos, search this for things from Earth, and use World Anvil for things on Kautos. Input should be a search query.")
-        wolfram_tool = Tool(name="Wolfram Alpha", func=wolfram.run, description="Useful for when you need to answer questions about Math, Science, Technology, Culture, Earth and Everyday Life. Input should be a search query.")
+        wiki_tool = Tool(name="Wikipedia", func=wiki.run, description="Useful for when you need to get information about people, places, organizations, religions, or historical events on Earth, or drawing inspiration from these things on Earth as a creative input for Kautos. Prioritize this when searching for things on Earth. When comparing things from Earth and Kautos, search this for things from Earth, and use World Anvil for things on Kautos. Input should be a search query.")
+        wolfram_tool = Tool(name="Wolfram Alpha", func=wolfram.run, description="Useful for when you need to answer questions about Math, Science, Technology, Earth Culture, and Everyday Life. Input should be a search query.")
         self.qa: QuestionAnswerer = qa
-        worldanvil_tool = Tool(name="World Anvil", func=self.qa.chain_run, description="Useful for when you need to answer questions about people, places, organizations, religions, or historical events on Kautos. Search this when information cannot be found on Wikipedia. When comparing things from Earth and Kautos, search this for things from Kautos, and use Wikipedia for things on Earth.Input should be a search query.")
-        google_tool = Tool(name="Google Search", func=google.run, description="A search engine. Useful for when you need to answer questions about current events, or when information cannot be found in Wikipedia or World Anvil. Input should be a search query.")
+        worldanvil_tool = Tool(name="World Anvil", func=self.qa.chain_run, description="Useful for when you need to get information about people, places, organizations, religions, or historical events on Kautos. Search this when information cannot be found on Wikipedia. When comparing things from Earth and Kautos, search this for things from Kautos, and use Wikipedia for things on Earth.Input should be a search query.")
+        google_tool = Tool(name="Google Search", func=google.run, description="Useful for when you need to answer questions about current events, or when information cannot be found in Wikipedia or World Anvil. Input should be a search query.")
         self.tools: list[Tool] = [worldanvil_tool, wiki_tool, google_tool, wolfram_tool]
-        self.memory: dict[str, ConversationBufferMemory] = memory
-        self.llm = OpenAI(temperature=0.3, openai_api_key=self.api_key, model_name=self.engine)
+        self.llm = OpenAI(temperature=0.2, openai_api_key=self.api_key, model_name=self.engine)
         self.chain = initialize_agent(self.tools, self.llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
                                       verbose=self.verbose)
 
@@ -50,6 +48,4 @@ class Agent:
             modify: bool = True
         if modify:
             pass
-#            self.chain = initialize_agent(self.tools, self.llm, agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
-#                                          verbose=self.verbose, memory=self.memory[convo_id], system_message=system_message)
         return
