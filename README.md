@@ -8,7 +8,7 @@
 ## Features
 
 * `/chat [message]` Chat with ChatGPT!
-* `/summary` Summary that ChatGPT uses to have long term memory.`
+* `/summary` Summary that ChatGPT uses to have long term memory.
 * `/qa [message]` Answer a question from ground truth from World Anvil. Question and Answer are part of the ChatGPT conversation.
 * `/agent [message]` Agent-based question answering using multiple tools. (World Anvil, Wikipedia, Google Search, Wolfram Alpha)  Question and Answer are part of the ChatGPT conversation.
 * `/draw [prompt]` Generate an image with the Dalle2 model
