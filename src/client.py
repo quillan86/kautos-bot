@@ -52,14 +52,6 @@ class Client(discord.Client):
             return ChatBot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
         else:
             raise KeyError("Needs to be OFFICIAL model")
-#        elif self.chat_model == "UNOFFICIAL":
-#            return AsyncChatbot(config={"email": self.openAI_email, "password": self.openAI_password, "access_token": self.chatgpt_access_token, "model": self.openAI_gpt_engine, "paid": self.chatgpt_paid})
-#        elif self.chat_model == "OFFICIAL":
-#            return ChatBot(api_key=self.openAI_API_key, engine=self.openAI_gpt_engine, system_prompt=prompt)
-#        elif self.chat_model == "Bard":
-#            return BardChatbot(session_id=self.bard_session_id)
-#        elif self.chat_model == "Bing":
-#            return EdgeChatbot(cookiePath='./cookies.json')
 
     async def get_author(self, interaction: discord.Interaction) -> int:
         if self.is_replying_all == "False":
@@ -75,20 +67,16 @@ class Client(discord.Client):
         else:
             return self.chat_model
 
-    async def create_response(self, message: str, initial_response: str = "", qa: bool = False) -> str:
+    async def create_response(self, message: str, initial_response: str = "", type: str = "chat") -> str:
         if self.chat_model == "OFFICIAL":
-            response = f"{initial_response}{await self.chatbot.ask(message, qa=qa)}"
+            response = f"{initial_response}{await self.chatbot.ask(message, type=type)}"
         elif self.chat_model == "UNOFFICIAL":
             response = f"{initial_response}{await responses.unofficial_handle_response(message, self)}"
         else:
             raise KeyError("OFFICIAL bot only!")
-        #        elif self.chat_model == "Bard":
-        #            response = f"{response}{await responses.bard_handle_response(message, self)}"
-        #        elif self.chat_model == "Bing":
-        #            response = f"{response}{await responses.bing_handle_response(message, self)}"
         return response
 
-    async def format_response(self, message: str, author, chat_model_status, qa: bool = False) -> str:
+    async def format_response(self, message: str, author, chat_model_status, type: str = "chat") -> str:
         """
         Format response.
         :param message:
@@ -97,7 +85,7 @@ class Client(discord.Client):
         :return:
         """
         response = (f'> **{message}** - <@{str(author)}> ({chat_model_status}) \n\n')
-        response = await self.create_response(message, initial_response=response, qa=qa)
+        response = await self.create_response(message, initial_response=response, type=type)
         return response
 
     async def handle_response(self, interaction: discord.Interaction, response: str):
@@ -196,19 +184,20 @@ class Client(discord.Client):
         else:
             await interaction.followup.send(error_message)
 
-    async def send_message(self, interaction: discord.Interaction, message: str, qa: bool = False):
+    async def send_message(self, interaction: discord.Interaction, message: str, type: str = 'chat'):
         """
         Send a message.
         :param interaction: Discord Interaction.
         :param message:
-        :param qa: Whether the message is a question to extract grounded knowledge.
+        :param type: Oneo of 'chat', 'qa', 'agent'
         :return:
         """
+        type = type.lower()
 
         author = await self.get_author(interaction)
         await interaction.response.defer(ephemeral=self.isPrivate)
         chat_model_status = await self.get_chat_model_status()
-        response = await self.format_response(message, author, chat_model_status, qa=qa)
+        response = await self.format_response(message, author, chat_model_status, type=type)
         await self.handle_response(interaction, response)
 
     async def send_start_prompt(self):
@@ -230,7 +219,7 @@ class Client(discord.Client):
                         intro_prompt = f.read()
                         if (discord_channel_id):
                             logger.info(f"Send system prompt with size {len(prompt)}")
-                            response = await self.create_response(intro_prompt, initial_response="", qa=False)
+                            response = await self.create_response(intro_prompt, initial_response="", type="chat")
                             channel = self.get_channel(int(discord_channel_id))
                             await channel.send(response)
                             logger.info(f"System prompt response:{response}")

@@ -11,3 +11,6 @@ numpy
 pandas
 opensearch-py
 chromadb
+wikipedia
+wolframalpha
+google-search-results

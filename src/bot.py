@@ -30,7 +30,23 @@ def run_discord_bot():
         channel = str(interaction.channel)
         logger.info(
             f"\x1b[31m{username}\x1b[0m : /chat [{message}] in ({channel})")
-        await client.send_message(interaction, message, qa=False)
+        await client.send_message(interaction, message, type="chat")
+
+    @client.tree.command(name="agent", description="Agent-based GPT")
+    async def agent(interaction: discord.Interaction, *, message: str):
+        if client.is_replying_all == "True":
+            await interaction.response.defer(ephemeral=False)
+            await interaction.followup.send(
+                "> **WARN: You already on replyAll mode. If you want to use the Slash Command, switch to normal mode by using `/replyall` again**")
+            logger.warning("\x1b[31mYou already on replyAll mode, can't use slash command!\x1b[0m")
+            return
+        if interaction.user == client.user:
+            return
+        username = str(interaction.user)
+        channel = str(interaction.channel)
+        logger.info(
+            f"\x1b[31m{username}\x1b[0m : /agent [{message}] in ({channel})")
+        await client.send_message(interaction, message, type="agent")
 
     @client.tree.command(name="qa", description="Question Answering")
     async def qa(interaction: discord.Interaction, *, message: str):
@@ -46,7 +62,7 @@ def run_discord_bot():
         channel = str(interaction.channel)
         logger.info(
             f"\x1b[31m{username}\x1b[0m : /qa [{message}] in ({channel})")
-        await client.send_message(interaction, message, qa=True)
+        await client.send_message(interaction, message, type="qa")
 
     @client.tree.command(name="summary", description="Summary of current conversation")
     async def summary(interaction: discord.Interaction):
@@ -177,17 +193,8 @@ def run_discord_bot():
         await interaction.followup.send(""":star: **BASIC COMMANDS** \n
         - `/chat [message]` Chat with ChatGPT!
         - `/summary` Summary that ChatGPT uses to have long term memory.`
-        - `/qa [message]` Answer a question from ground truth. Question and Answer are part of the ChatGPT conversation.
-        - `/draw [prompt]` Generate an image with the Dalle2 model
-        - `/switchpersona [persona]` Switch between optional ChatGPT jailbreaks
-                `random`: Picks a random persona
-                `chatgpt`: Standard ChatGPT mode
-                `dan`: Dan Mode 11.0, infamous Do Anything Now Mode
-                `sda`: Superior DAN has even more freedom in DAN Mode
-                `confidant`: Evil Confidant, evil trusted confidant
-                `based`: BasedGPT v2, sexy GPT
-                `oppo`: OPPO says exact opposite of what ChatGPT would say
-                `dev`: Developer Mode, v2 Developer mode enabled
+        - `/qa [message]` Answer a question from ground truth from World Anvil. Question and Answer are part of the ChatGPT conversation.
+        - `/agent [message]` Agent-based question answering using multiple tools. (World Anvil, Wikipedia, Google Search, Wolfram Alpha)  Question and Answer are part of the ChatGPT conversation.
 
         - `/private` ChatGPT switch to private mode
         - `/public` ChatGPT switch to public mode
@@ -236,77 +243,6 @@ https://github.com/Zero6992/chatGPT-discord-bot""")
             await interaction.followup.send(
                 "> **ERROR: Something went wrong 😿**")
             logger.exception(f"Error while generating image: {e}")
-
-
-    @client.tree.command(name="switchpersona", description="Switch between optional chatGPT jailbreaks")
-    @app_commands.choices(persona=[
-        app_commands.Choice(name="Random", value="random"),
-        app_commands.Choice(name="Standard", value="standard"),
-        app_commands.Choice(name="Do Anything Now 11.0", value="dan"),
-        app_commands.Choice(name="Superior Do Anything", value="sda"),
-        app_commands.Choice(name="Evil Confidant", value="confidant"),
-        app_commands.Choice(name="BasedGPT v2", value="based"),
-        app_commands.Choice(name="OPPO", value="oppo"),
-        app_commands.Choice(name="Developer Mode v2", value="dev"),
-        app_commands.Choice(name="DUDE V3", value="dude_v3"),
-        app_commands.Choice(name="AIM", value="aim"),
-        app_commands.Choice(name="UCAR", value="ucar"),
-        app_commands.Choice(name="Jailbreak", value="jailbreak")
-    ])
-    async def switchpersona(interaction: discord.Interaction, persona: app_commands.Choice[str]):
-        if interaction.user == client.user:
-            return
-
-        await interaction.response.defer(thinking=True)
-        username = str(interaction.user)
-        channel = str(interaction.channel)
-        logger.info(
-            f"\x1b[31m{username}\x1b[0m : '/switchpersona [{persona.value}]' ({channel})")
-
-        persona = persona.value
-
-        if persona == personas.current_persona:
-            await interaction.followup.send(f"> **WARN: Already set to `{persona}` persona**")
-
-        elif persona == "standard":
-            if client.chat_model == "OFFICIAL":
-                client.chatbot.reset()
-            elif client.chat_model == "UNOFFICIAL":
-                client.chatbot.reset_chat()
-            elif client.chat_model == "Bard":
-                client.chatbot = client.get_chatbot_model()
-            elif client.chat_model == "Bing":
-                client.chatbot = client.get_chatbot_model()
-
-            personas.current_persona = "standard"
-            await interaction.followup.send(
-                f"> **INFO: Switched to `{persona}` persona**")
-
-        elif persona == "random":
-            choices = list(personas.PERSONAS.keys())
-            choice = randrange(0, 6)
-            chosen_persona = choices[choice]
-            personas.current_persona = chosen_persona
-            await responses.switch_persona(chosen_persona, client)
-            await interaction.followup.send(
-                f"> **INFO: Switched to `{chosen_persona}` persona**")
-
-        elif persona in personas.PERSONAS:
-            try:
-                await responses.switch_persona(persona, client)
-                personas.current_persona = persona
-                await interaction.followup.send(
-                f"> **INFO: Switched to `{persona}` persona**")
-            except Exception as e:
-                await interaction.followup.send(
-                    "> **ERROR: Something went wrong, please try again later! 😿**")
-                logger.exception(f"Error while switching persona: {e}")
-
-        else:
-            await interaction.followup.send(
-                f"> **ERROR: No available persona: `{persona}` 😿**")
-            logger.info(
-                f'{username} requested an unavailable persona: `{persona}`')
 
     @client.event
     async def on_message(message):
