@@ -43,7 +43,7 @@ class Agent:
         self.qa: QuestionAnswerer = qa
         worldanvil_tool = Tool(name="World Anvil", func=self.qa.chain_run, description="Useful for when you need to get information about people, places, organizations, religions, or historical events on Kautos. Search this when information cannot be found on Wikipedia. When comparing things from Earth and Kautos, search this for things from Kautos, and use Wikipedia for things on Earth. Input should be a search query.")
         google_tool = Tool(name="Google Search", func=google.run, description="Useful for when you need to answer questions about current events, or when information cannot be found in Wikipedia or World Anvil. Prioritize this when searching for information over making up an explanation. Input should be a search query.")
-        creative_tool = Tool(name="Creative", func=creative_chain.run, description="Useful for when you need to make a creative explanation for a topic within Kautos. You can draw inspiration from Earth and/or Kautos based on previous answers from Wikipedia and World Anvil. Deprioritize this over Wikipedia and World Anvil. Input should be a search query.")
+        creative_tool = Tool(name="Creative", func=creative_chain.run, description="Useful for when you need to answer questions using a creative explanation for a topic within Kautos. Deprioritize this over Wikipedia and World Anvil. Input should be a search query.")
         self.accurate_tools: list[Tool] = [worldanvil_tool, wiki_tool, google_tool]
         self.creative_tools: list[Tool] = self.accurate_tools + [creative_tool]
 
