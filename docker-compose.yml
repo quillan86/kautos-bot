@@ -6,5 +6,5 @@ services:
     image: chatgpt-discord-bot
     container_name: chatgpt-discord-bot
     env_file:
-      - .env
+      - environment.env
     restart: unless-stopped

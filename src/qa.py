@@ -1,7 +1,6 @@
 import os
 import re
 from typing import Optional
-from langchain.callbacks.base import AsyncCallbackManager
 from langchain.callbacks.tracers import LangChainTracer
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA, SequentialChain
 from langchain.chains.chat_vector_db.prompts import (CONDENSE_QUESTION_PROMPT,
@@ -10,13 +9,14 @@ from langchain.chains.llm import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
-from langchain.vectorstores.base import VectorStore
+from langchain.vectorstores.base import VectorStore, BaseRetriever
 from src.loader import WorldAnvilLoader
 
 rephrase_template = """Rephrase the input into a question.
 Input: {question}
 Question:"""
 REPHRASE_QUESTION_PROMPT = PromptTemplate.from_template(rephrase_template)
+
 
 class QuestionAnswerer:
     # vanilla LLM for QA
@@ -36,9 +36,7 @@ class QuestionAnswerer:
         # figure this out!
         self.tracing: bool = tracing
         self.vector_store: Optional[VectorStore] = self.loader.load_and_create_index()
-        self.retriever = self.vector_store.as_retriever(search_type="similarity", search_kwargs={"k": self.k})
-        self.question_handler = AsyncCallbackManager([])
-        self.stream_handler = AsyncCallbackManager([])
+        self.retriever: BaseRetriever = self.vector_store.as_retriever(search_type="similarity", search_kwargs={"k": self.k})
         # LLM chain
         self.history_chain = self.get_chain(tracing=tracing)
         self.chain = self.get_retriever(tracing=tracing)
@@ -48,19 +46,14 @@ class QuestionAnswerer:
         """Create a ChatVectorDBChain for question/answering."""
         # Construct a ChatVectorDBChain with a streaming llm for combine docs
         # and a separate, non-streaming llm for question generation
-        manager = AsyncCallbackManager([])
         if tracing:
             tracer = LangChainTracer()
             tracer.load_default_session()
-            manager.add_handler(tracer)
-            self.question_handler.add_handler(tracer)
-            self.stream_handler.add_handler(tracer)
 
         question_gen_llm = OpenAI(
             temperature=0.0,
             model_name=self.engine,
             verbose=True,
-            callback_manager=self.question_handler,
             openai_api_key=self.api_key
         )
         streaming_llm = OpenAI(
@@ -68,22 +61,20 @@ class QuestionAnswerer:
             temperature=self.temperature,
             model_name=self.engine,
             verbose=True,
-            callback_manager=self.stream_handler,
             openai_api_key=self.api_key
         )
 
         question_generator = LLMChain(
-            llm=question_gen_llm, prompt=CONDENSE_QUESTION_PROMPT, callback_manager=manager
+            llm=question_gen_llm, prompt=CONDENSE_QUESTION_PROMPT
         )
         doc_chain = load_qa_chain(
-            streaming_llm, chain_type="stuff", prompt=QA_PROMPT, callback_manager=manager
+            streaming_llm, chain_type="stuff", prompt=QA_PROMPT
         )
 
         qa = ConversationalRetrievalChain(
             retriever=self.retriever,
             combine_docs_chain=doc_chain,
             question_generator=question_generator,
-            callback_manager=manager,
             return_source_documents=True
         )
         return qa
@@ -93,13 +84,9 @@ class QuestionAnswerer:
         """Create a ChatVectorDBChain for question/answering."""
         # Construct a ChatVectorDBChain with a streaming llm for combine docs
         # and a separate, non-streaming llm for question generation
-        manager = AsyncCallbackManager([])
         if tracing:
             tracer = LangChainTracer()
             tracer.load_default_session()
-            manager.add_handler(tracer)
-            self.question_handler.add_handler(tracer)
-            self.stream_handler.add_handler(tracer)
 
         question_gen_llm = OpenAI(
             temperature=0.0,
@@ -153,7 +140,7 @@ class QuestionAnswerer:
         result = ', '.join(citations)
         return result
 
-    def chain_run(self, question):
+    def chain_run(self, question: str):
         result = self.chain({"question": question})
         answer = result["result"]
         sources = result["source_documents"]
@@ -163,6 +150,18 @@ class QuestionAnswerer:
             response = f"{answer}\nSources: {citations}"
         else:
             response = f"{answer}"
+        return response
+
+    def document_run(self, question: str):
+        """
+        Get the raw documents themselves for agent run.
+        :param question:
+        :return:
+        """
+        result = self.chain({"question": question})
+        sources = result["source_documents"]
+        documents = [f"Page: {source.metadata['name']}\nSummary: {source.page_content}" for source in sources]
+        response = "\n\n".join(documents)
         return response
 
     def history_run(self, question, conversation) -> str:

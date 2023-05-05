@@ -5,7 +5,6 @@ from src.qa import QuestionAnswerer
 from src.agent import Agent
 from asgiref.sync import sync_to_async
 from langchain.chat_models import ChatOpenAI
-from langchain.callbacks.base import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.memory import ConversationKGMemory
 from langchain.llms import OpenAI
@@ -43,13 +42,11 @@ class ChatBot:
         # vanilla chat for regular conversational chat
         self.chat: ChatOpenAI = ChatOpenAI(temperature=self.temperature,
                                            model_name=self.engine,
-                                           openai_api_key=self.api_key,
-                                           callback_manager=CallbackManager([self.stream_handler]))
+                                           openai_api_key=self.api_key)
         # need precise chat LLM for KG
         self.kg_llm: ChatOpenAI = ChatOpenAI(temperature=0,
                                              model_name=self.engine,
-                                             openai_api_key=self.api_key,
-                                             callback_manager=CallbackManager([self.stream_handler]))
+                                             openai_api_key=self.api_key)
         # Question Answerer
         self.qa: QuestionAnswerer = QuestionAnswerer(api_key=self.api_key, engine=self.engine)
 
