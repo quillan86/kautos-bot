@@ -21,7 +21,6 @@ Result:"""
 
 creative_prompt = PromptTemplate(input_variables=["instruction", "topic", "context"], template=creative_template)
 
-s
 class SearchInput(BaseModel):
     query: str = Field(..., description="Search query")
 
